@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  # The DynamoDB Local database service
+  dynamodb:
+    image: amazon/dynamodb-local
+    container_name: dynamodb
+    ports:
+      - "8000:8000" # Expose port 8000 to your host machine
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
+    volumes:
+      - dynamodb_data:/data # Persist data between runs
+
+  # The service to initialize the database
+  init:
+    build:
+      context: . # Use the current directory as the build context
+      dockerfile: dbinit-Dockerfile # Specify the name of your Dockerfile
+    depends_on:
+      - dynamodb # Wait for the dynamodb service to be running before starting
+
+volumes:
+  dynamodb_data:
