@@ -7,7 +7,7 @@ USER root
 
 # Create the /data directory and change its ownership to the 'dynamodblocal' user.
 # This ensures the database process has guaranteed write access to its data directory.
-RUN mkdir /data && chown -R dynamodblocal:dynamodblocal /data
+RUN mkdir -p /data && chown -R dynamodblocal:dynamodblocal /data
 
 # Switch back to the non-privileged user to run the database process
 USER dynamodblocal

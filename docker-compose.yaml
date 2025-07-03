@@ -3,38 +3,48 @@ version: '3.8'
 services:
   # The DynamoDB Local database service
   dynamodb:
-    # --- START OF CHANGE ---
-    # Instead of using a pre-built image, we now build our own custom one
-    # that fixes the internal file permissions.
-    build:
-      context: .
-      dockerfile: dynamodb-Dockerfile
-    # --- END OF CHANGE ---
+    image: amazon/dynamodb-local
     container_name: dynamodb-local
     ports:
       - "8000:8000"
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
     volumes:
-      - ./dynamodb_data:/data # Continue using a bind mount
+      - ./dynamodb_data:/data
+    networks:
+      - gatekeeper-net
 
   # The service to initialize the database
   init:
     build:
       context: .
       dockerfile: dbinit-Dockerfile
-    command: ["/app/wait-for-it.sh", "dynamodb", "--", "python", "db_init.py"]
+    # This command now runs the init script. The restart policy will handle
+    # waiting for the database to be ready.
+    command: ["python", "db_init.py"]
+    # This policy will automatically restart the init container if it fails
+    # (e.g., if the DB isn't ready). It will keep trying until it succeeds.
+    restart: on-failure
     depends_on:
       - dynamodb
+    networks:
+      - gatekeeper-net
 
   # The FastAPI application service
   api:
     build:
       context: .
       dockerfile: api-Dockerfile
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8001:8000"
     environment:
       - IS_LOCAL=true
     depends_on:
       - dynamodb
-      - init
+    networks:
+      - gatekeeper-net
+
+# Define the custom network
+networks:
+  gatekeeper-net:
+    driver: bridge
