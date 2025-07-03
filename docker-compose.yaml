@@ -4,9 +4,9 @@ services:
   # The DynamoDB Local database service
   dynamodb:
     image: amazon/dynamodb-local
-    container_name: dynamodb
+    container_name: dynamodb-local
     ports:
-      - "8000:8000" # Expose port 8000 to your host machine
+      - "8000:8000" # Expose port 8000 for database access (e.g., from AWS CLI or a GUI)
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
     volumes:
       - dynamodb_data:/data # Persist data between runs
@@ -15,9 +15,23 @@ services:
   init:
     build:
       context: . # Use the current directory as the build context
-      dockerfile: dbinit-Dockerfile # Specify the name of your Dockerfile
+      dockerfile: dbinit-Dockerfile # Specify the name of your DB init Dockerfile
     depends_on:
       - dynamodb # Wait for the dynamodb service to be running before starting
 
+  # The FastAPI application service
+  api:
+    build:
+      context: .
+      dockerfile: api-Dockerfile # Build the image from your api-Dockerfile
+    ports:
+      - "8001:8000" # Map host port 8001 to container port 8000 to avoid conflict with DynamoDB
+    environment:
+      - IS_LOCAL=true # Tell the app to connect to the local DynamoDB instance
+    depends_on:
+      - dynamodb # Ensure the database is running before the API starts
+      - init     # Ensure the initialization script has been triggered
+
 volumes:
   dynamodb_data:
+
