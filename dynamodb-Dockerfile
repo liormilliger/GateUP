@@ -1,0 +1,15 @@
+# Start from the official amazon/dynamodb-local image
+FROM amazon/dynamodb-local
+
+# The user that runs the DynamoDB process inside the container is 'dynamodblocal'
+# We need to switch to the root user to change permissions
+USER root
+
+# Create the /data directory and change its ownership to the 'dynamodblocal' user.
+# This ensures the database process has guaranteed write access to its data directory.
+RUN mkdir /data && chown -R dynamodblocal:dynamodblocal /data
+
+# Switch back to the non-privileged user to run the database process
+USER dynamodblocal
+
+# The rest of the configuration (command, port, etc.) will be handled by docker-compose

@@ -1,4 +1,8 @@
+# Use an official lightweight Python image as a base
 FROM python:3.9-slim
+
+# --- FIX: Install netcat (nc), which is required by the wait-for-it.sh script ---
+RUN apt-get update && apt-get install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory inside the container
 WORKDIR /code
@@ -19,6 +23,5 @@ COPY ./app /code/app
 # Expose the port that the application will run on
 EXPOSE 8000
 
-# The command will be provided by docker-compose.yml
-# It will use the wait-for-it.sh script to ensure DynamoDB is ready.
+# The command uses the wait script to ensure DynamoDB is ready.
 CMD ["/code/wait-for-it.sh", "dynamodb", "--", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
