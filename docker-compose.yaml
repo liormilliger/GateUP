@@ -10,23 +10,17 @@ services:
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
     volumes:
       - ./dynamodb_data:/data # Use a bind mount for data persistence
-    # Add a healthcheck to ensure the DynamoDB service is fully running
-    # and ready to accept connections before other services start.
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   # The service to initialize the database
   init:
     build:
       context: .
       dockerfile: dbinit-Dockerfile
+    # The command now uses the wait script to ensure DynamoDB is ready
+    # before running the python initialization script.
+    command: ["/app/wait-for-it.sh", "dynamodb", "--", "python", "db_init.py"]
     depends_on:
-      dynamodb:
-        condition: service_healthy
-
+      - dynamodb # Still useful to control startup order
 
   # The FastAPI application service
   api:
@@ -37,7 +31,8 @@ services:
       - "8001:8000"
     environment:
       - IS_LOCAL=true
+    # The command is now defined in the api-Dockerfile, which includes the wait script.
+    # We still use depends_on to manage startup order and dependencies.
     depends_on:
-      dynamodb:
-        condition: service_healthy
-  
+      - dynamodb # Control startup order
+      - init     # Ensure init runs before the api starts
