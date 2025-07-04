@@ -96,7 +96,7 @@ jobs:
 
       - name: All Tests Passed
         if: success()
-        run: echo "CI Pipeline Succeeded: All tests passed!"
+        run: echo "CI Pipeline Succeeded All tests passed!"
 
       - name: Tests Failed
         if: failure()
