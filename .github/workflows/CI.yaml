@@ -111,7 +111,7 @@ jobs:
       # This step only runs if all previous steps have succeeded.
       - name: All Tests Passed
         if: success()
-        run: echo "CI Pipeline Succeeded: All tests passed!"
+        run: echo "CI Pipeline Succeeded - All tests passed!"
 
       # Step 8: Failure Message
       # This step only runs if any of the previous steps have failed.
