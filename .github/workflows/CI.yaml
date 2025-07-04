@@ -15,42 +15,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # This is the CI equivalent of the manual fix that worked on your local machine.
+      # It prepares the host runner's filesystem before Docker tries to mount the volume.
+      - name: Create Data Directory and Set Permissions
+        run: mkdir -p ./dynamodb_data && chmod 777 ./dynamodb_data
+
       - name: Build and run Docker Compose
         run: docker compose up --build -d
-
-      - name: Check initial container status
-        run: |
-          echo "Waiting 15 seconds for services to stabilize..."
-          sleep 15
-          echo "--- Dumping initial API logs ---"
-          docker compose logs api
-          echo "--- Dumping initial DB logs ---"
-          docker compose logs dynamodb
-
-      # --- START OF CHANGE ---
-      # New step to isolate and test the database connection directly.
-      - name: Test DB Connection Directly
-        id: db_test
-        # This allows the workflow to continue even if this step fails.
-        continue-on-error: true
-        run: |
-          echo "--- Running Direct DB Connection Test ---"
-          aws configure set aws_access_key_id dummykey
-          aws configure set aws_secret_access_key dummysecret
-          aws configure set region us-east-1
-          # Using list-tables as it's the simplest read command.
-          aws dynamodb list-tables --endpoint-url http://localhost:8000
-          echo "Direct DB Connection Test PASSED"
-
-      # New step to dump logs ONLY if the direct DB test failed.
-      - name: Dump DB Logs on Failure
-        if: steps.db_test.outcome == 'failure'
-        run: |
-          echo "Direct DB test failed. Dumping DB logs for analysis..."
-          docker compose logs dynamodb
-          # Fail the entire workflow
-          exit 1
-      # --- END OF CHANGE ---
 
       - name: Wait for API service to be healthy
         run: |
@@ -110,8 +81,8 @@ jobs:
           echo "Reading test item back from Guests table..."
           aws dynamodb get-item \
             --endpoint-url http://localhost:8000 \
-            --table-name Guests \
-            --key '{"license_plate": {"S": "CI-TEST-123"}}' | grep "CI Tester"
+            --key '{"license_plate": {"S": "CI-TEST-123"}}' \
+            --table-name Guests | grep "CI Tester"
           if [ $? -ne 0 ]; then
             echo "DB Test FAILED: Could not read the newly written item."
             exit 1
