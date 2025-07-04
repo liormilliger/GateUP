@@ -25,7 +25,7 @@ services:
     # FIX: Use the wait-for-it.sh script to explicitly wait for the DB
     # This prevents the container from restarting and makes startup more robust.
     # The command now waits for 'dynamodb:8000' before executing the python script.
-    command: ["./wait-for-it.sh", "dynamodb", "--", "python", "init_db.py"]
+    command: ["./wait-for-it.sh", "dynamodb", "python", "init_db.py"]
     # REMOVED: The 'restart: on-failure' is no longer the primary wait mechanism.
     depends_on:
       - dynamodb

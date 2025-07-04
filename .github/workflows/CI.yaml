@@ -1,9 +1,11 @@
 name: Local Build and Test Pipeline
 
 # This workflow triggers on any push event to any branch in the repository.
+# It can also be triggered manually from the GitHub Actions UI.
 on:
   push:
     branches: [ "**" ] # Triggers for all branches, including main
+  workflow_dispatch: # Allows manual triggering from the Actions tab
 
 jobs:
   build-and-test:
@@ -113,4 +115,3 @@ jobs:
           docker-compose logs api
           echo "--- Dumping DB logs ---"
           docker-compose logs dynamodb
-          
