@@ -1,3 +1,5 @@
+# .github/workflows/ci.yml
+
 name: Local Build and Test Pipeline
 
 # This workflow triggers on any push event to any branch in the repository.
@@ -17,11 +19,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Build and run the Docker Compose stack in the background
+      # Step 2: Change to the GateUP directory
+      # This is where the docker-compose.yml file is located.
+      - name: Change to GateUP directory
+        run: cd GateUP
+
+      # Step 3: Build and run the Docker Compose stack in the background
       - name: Build and run Docker Compose
         run: docker-compose up --build -d
+        working-directory: ./GateUP # Run this command in the GateUP subdirectory
 
-      # Step 3: Wait for services to be ready
+      # Step 4: Wait for services to be ready
       # This is a crucial step. We will wait up to 30 seconds for the API
       # to become responsive before proceeding with tests.
       - name: Wait for API service to be healthy
@@ -40,7 +48,7 @@ jobs:
           echo "API did not start in time."
           exit 1
 
-      # Step 4: Run Healthcheck Test
+      # Step 5: Run Healthcheck Test
       # This test checks the root endpoint of the API.
       - name: Run API Healthcheck Test
         run: |
@@ -52,7 +60,7 @@ jobs:
           fi
           echo "API Healthcheck Test PASSED"
 
-      # Step 5: Run Database Write/Read Test
+      # Step 6: Run Database Write/Read Test
       - name: Run Database Test
         run: |
           echo "--- Running Database Test ---"
@@ -99,13 +107,13 @@ jobs:
           echo "Read operation PASSED."
           echo "Database Test PASSED"
 
-      # Step 6: Success Message
+      # Step 7: Success Message
       # This step only runs if all previous steps have succeeded.
       - name: All Tests Passed
         if: success()
-        run: echo "CI Pipeline Succeeded - All tests passed!"
+        run: echo "CI Pipeline Succeeded: All tests passed!"
 
-      # Step 7: Failure Message
+      # Step 8: Failure Message
       # This step only runs if any of the previous steps have failed.
       - name: Tests Failed
         if: failure()
