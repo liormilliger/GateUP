@@ -1,48 +1,47 @@
+# .github/workflows/ci.yml
+
 name: Local Build and Test Pipeline
 
-# This workflow triggers on any push event to any branch in the repository.
-# It can also be triggered manually from the GitHub Actions UI.
 on:
   push:
-    branches: [ "**" ] # Triggers for all branches, including main
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+    branches: [ "**" ]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out the repository code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Build and run the Docker Compose stack in the background
-      # Using 'docker compose' (with a space) which is the standard on GitHub runners.
       - name: Build and run Docker Compose
         run: docker compose up --build -d
 
-      # Step 3: Wait for services to be ready
-      # This is a crucial step. We will wait up to 30 seconds for the API
-      # to become responsive before proceeding with tests.
+      - name: Check initial container status
+        run: |
+          echo "Waiting 15 seconds for services to stabilize..."
+          sleep 15
+          echo "--- Dumping initial API logs ---"
+          docker compose logs api
+          echo "--- Dumping initial DB logs ---"
+          docker compose logs dynamodb
+
       - name: Wait for API service to be healthy
         run: |
           echo "Waiting for API..."
           for i in {1..15}; do
-            # The -s -o /dev/null hides progress, and -w '%{http_code}' prints only the status code.
             STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/)
             if [ "$STATUS" -eq 200 ]; then
               echo "API is up and running!"
               exit 0
             fi
-            echo "Attempt $i: API not ready yet (Status: $STATUS). Retrying in 2 seconds..."
-            sleep 2
+            echo "Attempt $i: API not ready yet (Status: $STATUS). Retrying in 7 seconds..."
+            sleep 7
           done
           echo "API did not start in time."
           exit 1
 
-      # Step 4: Run Healthcheck Test
-      # This test checks the root endpoint of the API.
       - name: Run API Healthcheck Test
         run: |
           echo "--- Running API Healthcheck Test ---"
@@ -53,16 +52,13 @@ jobs:
           fi
           echo "API Healthcheck Test PASSED"
 
-      # Step 5: Run Database Write/Read Test
       - name: Run Database Test
         run: |
           echo "--- Running Database Test ---"
-          # Configure dummy AWS credentials for local access
           aws configure set aws_access_key_id dummykey
           aws configure set aws_secret_access_key dummysecret
           aws configure set region us-east-1
 
-          # Test 1: Verify that the init script populated the Residents table
           echo "Checking for initial data in Residents table..."
           aws dynamodb scan --table-name Residents --endpoint-url http://localhost:8000 | grep "Yossi Cohen"
           if [ $? -ne 0 ]; then
@@ -71,7 +67,6 @@ jobs:
           fi
           echo "Initial data check PASSED."
 
-          # Test 2: Write a new item to the Guests table
           echo "Writing a test item to Guests table..."
           aws dynamodb put-item \
             --endpoint-url http://localhost:8000 \
@@ -87,7 +82,6 @@ jobs:
           fi
           echo "Write operation PASSED."
 
-          # Test 3: Read the item back to confirm the write
           echo "Reading test item back from Guests table..."
           aws dynamodb get-item \
             --endpoint-url http://localhost:8000 \
@@ -100,19 +94,15 @@ jobs:
           echo "Read operation PASSED."
           echo "Database Test PASSED"
 
-      # Step 6: Success Message
-      # This step only runs if all previous steps have succeeded.
       - name: All Tests Passed
         if: success()
-        run: echo "CI Pipeline Succeeded - All tests passed!"
+        run: echo "CI Pipeline Succeeded: All tests passed!"
 
-      # Step 7: Failure Message
-      # This step only runs if any of the previous steps have failed.
       - name: Tests Failed
         if: failure()
         run: |
           echo "CI Pipeline FAILED"
-          echo "--- Dumping API logs ---"
-          docker compose -f GateUP/docker-compose.yml logs api
-          echo "--- Dumping DB logs ---"
-          docker compose -f GateUP/docker-compose.yml logs dynamodb
+          echo "--- Dumping final API logs ---"
+          docker compose logs api
+          echo "--- Dumping final DB logs ---"
+          docker compose logs dynamodb
