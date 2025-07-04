@@ -27,6 +27,31 @@ jobs:
           echo "--- Dumping initial DB logs ---"
           docker compose logs dynamodb
 
+      # --- START OF CHANGE ---
+      # New step to isolate and test the database connection directly.
+      - name: Test DB Connection Directly
+        id: db_test
+        # This allows the workflow to continue even if this step fails.
+        continue-on-error: true
+        run: |
+          echo "--- Running Direct DB Connection Test ---"
+          aws configure set aws_access_key_id dummykey
+          aws configure set aws_secret_access_key dummysecret
+          aws configure set region us-east-1
+          # Using list-tables as it's the simplest read command.
+          aws dynamodb list-tables --endpoint-url http://localhost:8000
+          echo "Direct DB Connection Test PASSED"
+
+      # New step to dump logs ONLY if the direct DB test failed.
+      - name: Dump DB Logs on Failure
+        if: steps.db_test.outcome == 'failure'
+        run: |
+          echo "Direct DB test failed. Dumping DB logs for analysis..."
+          docker compose logs dynamodb
+          # Fail the entire workflow
+          exit 1
+      # --- END OF CHANGE ---
+
       - name: Wait for API service to be healthy
         run: |
           echo "Waiting for API..."
