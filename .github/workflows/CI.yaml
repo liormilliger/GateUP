@@ -21,7 +21,6 @@ jobs:
       # Using 'docker compose' (with a space) which is the standard on GitHub runners.
       - name: Build and run Docker Compose
         run: docker compose up --build -d
-        working-directory: ./GateUP # Run this command in the GateUP subdirectory
 
       # Step 3: Wait for services to be ready
       # This is a crucial step. We will wait up to 30 seconds for the API
