@@ -119,8 +119,9 @@ def populate_residents_table(dynamodb_resource):
 
 
 if __name__ == '__main__':
-    # When running inside Docker Compose, the script connects to the 'dynamodb' service name.
-    DYNAMODB_ENDPOINT = 'http://dynamodb:8000'
+    # FIX: Connect to the 'dynamodb' service name from docker-compose.
+    # It is also better practice to pull this from an environment variable.
+    DYNAMODB_ENDPOINT = os.environ.get("DYNAMODB_ENDPOINT", "http://dynamodb:8000")
     AWS_REGION = 'us-east-1' 
     AWS_ACCESS_KEY_ID = 'dummykey'
     AWS_SECRET_ACCESS_KEY = 'dummysecret'
