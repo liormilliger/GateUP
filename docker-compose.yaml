@@ -3,8 +3,12 @@ version: '3.8'
 services:
   # The DynamoDB Local database service
   dynamodb:
-    image: amazon/dynamodb-local
-    container_name: dynamodb-local
+    # FIX: Build the image from the custom Dockerfile to ensure correct permissions
+    build:
+      context: .
+      dockerfile: dynamodb-Dockerfile
+    # FIX: Using the service name as the container name for consistency
+    container_name: dynamodb
     ports:
       - "8000:8000"
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
@@ -18,12 +22,11 @@ services:
     build:
       context: .
       dockerfile: dbinit-Dockerfile
-    # This command now runs the init script. The restart policy will handle
-    # waiting for the database to be ready.
-    command: ["python", "db_init.py"]
-    # This policy will automatically restart the init container if it fails
-    # (e.g., if the DB isn't ready). It will keep trying until it succeeds.
-    restart: on-failure
+    # FIX: Use the wait-for-it.sh script to explicitly wait for the DB
+    # This prevents the container from restarting and makes startup more robust.
+    # The command now waits for 'dynamodb:8000' before executing the python script.
+    command: ["./wait-for-it.sh", "dynamodb", "--", "python", "init_db.py"]
+    # REMOVED: The 'restart: on-failure' is no longer the primary wait mechanism.
     depends_on:
       - dynamodb
     networks:
@@ -40,7 +43,9 @@ services:
     environment:
       - IS_LOCAL=true
     depends_on:
-      - dynamodb
+      # FIX: The API should wait for the init service to complete successfully
+      # to ensure tables exist before the API starts.
+      - init
     networks:
       - gatekeeper-net
 

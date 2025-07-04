@@ -17,3 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the initialization script into the container
 COPY init_db.py .
+
+CMD ["./wait-for-it.sh", "dynamodb:8000", "--", "python", "init_db.py"]
