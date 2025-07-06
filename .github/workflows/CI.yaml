@@ -56,8 +56,12 @@ jobs:
       - name: Run Database Test
         run: |
           echo "--- Running Database Test ---"
-          # Install AWS CLI
-          sudo apt-get update && sudo apt-get install -y awscli
+          # Install unzip and the AWS CLI v2
+          echo "Installing AWS CLI..."
+          sudo apt-get update && sudo apt-get install -y unzip
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
 
           aws configure set aws_access_key_id dummykey
           aws configure set aws_secret_access_key dummysecret
