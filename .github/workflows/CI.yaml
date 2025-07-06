@@ -95,7 +95,7 @@ jobs:
           # Use the ECR registry URI from the previous login step's output
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           # The name of your ECR repository, stored as a GitHub secret
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+          ECR_REPOSITORY: gatekeeper-api-dev
           # The tag for the image, e.g., 'latest'
           IMAGE_TAG: latest
         run: |
