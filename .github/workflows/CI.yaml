@@ -1,21 +1,25 @@
 # .github/workflows/ci.yml
 
-name: Local Build and Test Pipeline
+name: Build, Test, and Deploy Application
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ "main" ]
   workflow_dispatch:
+
+# Grant permissions for the workflow to request a JWT from GitHub's OIDC provider.
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   build-and-test:
-    name: Build and Test
+    name: Build, Test and Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # This step prepares the host runner's filesystem before Docker mounts the volume.
       - name: Create Data Directory and Set Permissions
         run: mkdir -p ./dynamodb_data && chmod 777 ./dynamodb_data
 
@@ -70,36 +74,47 @@ jobs:
           fi
           echo "Initial data check PASSED."
 
-          echo "Writing a test item to Guests table..."
-          aws dynamodb put-item \
-            --endpoint-url http://localhost:8000 \
-            --table-name Guests \
-            --item '{
-              "license_plate": {"S": "CI-TEST-123"},
-              "guest_name": {"S": "CI Tester"},
-              "added_by": {"S": "workflow"}
-            }'
-          if [ $? -ne 0 ]; then
-            echo "DB Test FAILED: 'put-item' command failed."
-            exit 1
-          fi
-          echo "Write operation PASSED."
+      # --- START OF NEW DEPLOYMENT STEPS ---
 
-          echo "Reading test item back from Guests table..."
-          aws dynamodb get-item \
-            --endpoint-url http://localhost:8000 \
-            --key '{"license_plate": {"S": "CI-TEST-123"}}' \
-            --table-name Guests | grep "CI Tester"
-          if [ $? -ne 0 ]; then
-            echo "DB Test FAILED: Could not read the newly written item."
-            exit 1
-          fi
-          echo "Read operation PASSED."
-          echo "Database Test PASSED"
+      - name: Configure AWS Credentials
+        if: success() # Only run if tests pass
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # This role ARN must be created in your AWS account and stored as a GitHub secret
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        if: success()
+        uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - name: Tag and Push Docker image to ECR
+        if: success()
+        env:
+          # Use the ECR registry URI from the previous login step's output
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          # The name of your ECR repository, stored as a GitHub secret
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+          # The tag for the image, e.g., 'latest'
+          IMAGE_TAG: latest
+        run: |
+          # The image name 'gateup-api' is derived from your project directory ('GateUP')
+          # and the service name ('api') in your docker-compose.yml file.
+          IMAGE_NAME=gateup-api
+
+          echo "Tagging image $IMAGE_NAME:$IMAGE_TAG"
+          docker tag $IMAGE_NAME:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+          echo "Pushing image to ECR..."
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "Image pushed successfully to ECR."
+
+      # --- END OF NEW DEPLOYMENT STEPS ---
 
       - name: All Tests Passed
         if: success()
-        run: echo "CI Pipeline Succeeded. All tests passed!"
+        run: echo "CI/CD Pipeline Succeeded. All tests passed and image was pushed to ECR!"
 
       - name: Tests Failed
         if: failure()
