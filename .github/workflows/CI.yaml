@@ -110,8 +110,6 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "Image pushed successfully to ECR."
 
-      # --- END OF NEW DEPLOYMENT STEPS ---
-
       - name: All Tests Passed
         if: success()
         run: echo "CI/CD Pipeline Succeeded. All tests passed and image was pushed to ECR!"
