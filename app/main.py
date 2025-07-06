@@ -3,6 +3,7 @@
 
 from fastapi import FastAPI
 from app.api import guest_router
+from mangum import Mangum
 
 # Create the main FastAPI application instance
 app = FastAPI(
@@ -22,3 +23,5 @@ def read_root():
     """
     return {"message": "Welcome to the Gatekeeper API"}
 
+# Create the handler that AWS Lambda will invoke
+handler = Mangum(app)
