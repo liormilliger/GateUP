@@ -1,16 +1,11 @@
-# .github/workflows/ci-cd.yml
+# .github/workflows/ci.yml
 
-name: CI/CD Pipeline for GateUP local build
+name: Local Build and Test Pipeline
 
 on:
   push:
-    branches: [ "main" ] # It's good practice to only deploy from specific branches like 'main'
+    branches: [ "**" ]
   workflow_dispatch:
-
-env:
-  ECR_REPOSITORY: gateup/dev
-  AWS_REGION: us-east-1
-  IMAGE_NAME: gateup-local-api # Assuming 'api' is the service you want to push to ECR
 
 jobs:
   build-and-test:
@@ -56,12 +51,11 @@ jobs:
       - name: Run Database Test
         run: |
           echo "--- Running Database Test ---"
-          # Install unzip and the AWS CLI v2
+          # Install/Update the AWS CLI v2
           echo "Installing/Updating AWS CLI..."
           sudo apt-get update && sudo apt-get install -y unzip
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
-          # Add --update flag to handle pre-existing installations
           sudo ./aws/install --update
 
           aws configure set aws_access_key_id dummykey
@@ -116,48 +110,3 @@ jobs:
           echo "--- Dumping final DB logs ---"
           docker compose logs dynamodb
           exit 1
-
-  push-to-ecr:
-    name: Push to ECR
-    runs-on: ubuntu-latest
-    needs: build-and-test # This job runs only after build-and-test succeeds
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # The configure-aws-credentials action is the recommended way to authenticate.
-      # IMPORTANT: You must configure these secrets in your GitHub repository settings.
-      # Go to Settings > Secrets and variables > Actions > New repository secret
-      # Create AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY secrets.
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          # Build the docker image
-          # This assumes your Dockerfile for the 'api' service is in the root directory.
-          # Adjust the path to the Dockerfile if it's located elsewhere (e.g., ./api/Dockerfile)
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile .
-
-          # Push the image to ECR
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          
-          # Also tag as 'latest' and push
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
-          echo "Image pushed to $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
